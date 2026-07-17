@@ -29,7 +29,10 @@ export async function POST(request: Request) {
 
   const ext = file.type === "image/png" ? "png" : file.type === "image/jpeg" ? "jpg" : "webp";
   const filename = `${crypto.randomUUID()}.${ext}`;
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
+  // Runtime uploads must live outside public/ — in production Next only serves
+  // public/ assets that existed at build time, so files written there 404.
+  // /uploads/* requests fall through to app/uploads/[filename]/route.ts instead.
+  const uploadsDir = path.join(process.cwd(), "uploads");
   await fs.mkdir(uploadsDir, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
   await fs.writeFile(path.join(uploadsDir, filename), buffer);

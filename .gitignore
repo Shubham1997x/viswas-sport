@@ -45,4 +45,6 @@ next-env.d.ts
 /prisma/*.db-journal
 /lib/generated/prisma
 
+# runtime image uploads (served by app/uploads/[filename]/route.ts)
+/uploads
 
