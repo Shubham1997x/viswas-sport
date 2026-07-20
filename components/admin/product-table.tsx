@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -15,6 +15,16 @@ import {
 } from "../ui/alert-dialog";
 import { adminDeleteProduct, type AdminProduct } from "@/app/actions/admin";
 
+type SortKey = "name" | "category" | "price" | "status";
+type SortDir = "asc" | "desc";
+
+const SORTERS: Record<SortKey, (p: AdminProduct) => string | number> = {
+  name: (p) => p.name.toLowerCase(),
+  category: (p) => `${p.categoryName}${p.subcategoryName ?? ""}`.toLowerCase(),
+  price: (p) => p.price ?? -Infinity,
+  status: (p) => (p.isActive ? 1 : 0),
+};
+
 export function ProductTable({
   products,
   onEdit,
@@ -26,6 +36,29 @@ export function ProductTable({
 }) {
   const [pendingDelete, setPendingDelete] = useState<AdminProduct | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+
+  const toggleSort = (key: SortKey) => {
+    setSort((current) => {
+      if (!current || current.key !== key) return { key, dir: "asc" };
+      if (current.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  };
+
+  const sorted = useMemo(() => {
+    if (!sort) return products;
+    const getValue = SORTERS[sort.key];
+    const copy = [...products].sort((a, b) => {
+      const av = getValue(a);
+      const bv = getValue(b);
+      if (av < bv) return -1;
+      if (av > bv) return 1;
+      return 0;
+    });
+    if (sort.dir === "desc") copy.reverse();
+    return copy;
+  }, [products, sort]);
 
   const confirmDelete = () => {
     if (!pendingDelete) return;
@@ -49,18 +82,30 @@ export function ProductTable({
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
             <tr className="border-b border-hairline">
-              {["Product", "Category", "Price", "Status", ""].map((h, i) => (
-                <th
-                  key={i}
-                  className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft"
-                >
-                  {h}
+              {(
+                [
+                  { key: "name", label: "Product" },
+                  { key: "category", label: "Category" },
+                  { key: "price", label: "Price" },
+                  { key: "status", label: "Status" },
+                ] as const
+              ).map(({ key, label }) => (
+                <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(key as SortKey)}
+                    className="flex items-center gap-1 transition-colors hover:text-ultra"
+                  >
+                    {label}
+                    {sort?.key === key && <span aria-hidden="true">{sort.dir === "asc" ? "▲" : "▼"}</span>}
+                  </button>
                 </th>
               ))}
+              <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft" />
             </tr>
           </thead>
           <tbody className="divide-y divide-hairline">
-            {products.map((p) => (
+            {sorted.map((p) => (
               <tr key={p.id} className="transition-colors hover:bg-tint/40">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">

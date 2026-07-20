@@ -1,7 +1,7 @@
 import { getCatalog } from "@/lib/catalog";
 import { Nav } from "@/components/nav";
 import { CatalogHero } from "@/components/catalog-hero";
-import { CatalogPage } from "@/components/catalog-page";
+import { CategoryTiles } from "@/components/category-tiles";
 import { Footer } from "@/components/footer";
 import { StickyBar } from "@/components/sticky-bar";
 import { FloatingWhatsapp } from "@/components/floating-whatsapp";
@@ -17,7 +17,7 @@ export default async function Home() {
       <Nav />
       <main>
         <CatalogHero />
-        <CatalogPage initialData={data} />
+        <CategoryTiles sports={data.sports} />
       </main>
       <Footer />
       <StickyBar />

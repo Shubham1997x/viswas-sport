@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { SendInquiryDialog } from "./send-inquiry-dialog";
+import { CartDrawer } from "./cart-drawer";
 
 import { site, waLink, telLink } from "@/lib/site";
+import { useCart } from "@/lib/cart";
 
 const LINKS = [
   { href: "#catalog", label: "Catalog" },
@@ -32,6 +34,40 @@ function GetQuoteButton() {
         </svg>
       </button>
       <SendInquiryDialog product={null} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
+
+function CartButton() {
+  const { count } = useCart();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-hairline text-ink-soft transition-colors hover:border-ultra hover:text-ultra"
+      >
+        <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden="true">
+          <path
+            d="M1.5 1.5h1.5l1.4 8.4a1 1 0 0 0 1 .83h5.7a1 1 0 0 0 1-.8l1-5.2H4.2"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle cx="6" cy="13.5" r="1" fill="currentColor" />
+          <circle cx="11.5" cy="13.5" r="1" fill="currentColor" />
+        </svg>
+        {count > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ultra px-1 text-[10px] font-bold tabular-nums text-paper">
+            {count}
+          </span>
+        )}
+      </button>
+      <CartDrawer open={open} onOpenChange={setOpen} />
     </>
   );
 }
@@ -80,6 +116,7 @@ export function Nav() {
             </svg>
             <span className="tabular-nums">{site.phone}</span>
           </a>
+          <CartButton />
           <GetQuoteButton />
         </div>
       </div>

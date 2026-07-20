@@ -29,7 +29,8 @@ type SeedProduct = {
 };
 
 type SeedData = {
-  categories: Array<{ name: string; subcategories: string[] }>;
+  sports: string[];
+  categories: Array<{ name: string; sport: string; subcategories: string[] }>;
   products: SeedProduct[];
 };
 
@@ -44,14 +45,26 @@ async function main() {
   await prisma.tag.deleteMany();
   await prisma.subcategory.deleteMany();
   await prisma.category.deleteMany();
+  await prisma.sport.deleteMany();
+
+  console.log("Creating sports...");
+  const sportMap = new Map<string, number>();
+  for (const [si, name] of data.sports.entries()) {
+    const sport = await prisma.sport.create({
+      data: { name, slug: slugify(name), sortOrder: si },
+    });
+    sportMap.set(name, sport.id);
+  }
 
   console.log("Creating categories & subcategories...");
   const categoryMap = new Map<string, number>();
   const subcategoryMap = new Map<string, number>(); // key: `${categoryName}::${subName}`
 
   for (const [ci, cat] of data.categories.entries()) {
+    const sportId = sportMap.get(cat.sport);
+    if (!sportId) throw new Error(`Unknown sport: ${cat.sport}`);
     const category = await prisma.category.create({
-      data: { name: cat.name, slug: slugify(cat.name), sortOrder: ci },
+      data: { name: cat.name, slug: slugify(cat.name), sportId, sortOrder: ci },
     });
     categoryMap.set(cat.name, category.id);
 

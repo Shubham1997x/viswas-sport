@@ -22,6 +22,20 @@ export function productWaLink(productName: string) {
   );
 }
 
+export function buildBulkWaLink(
+  items: Array<{ name: string; qty: number; price: number | null; priceUnit: string }>
+) {
+  const lines = items.map(
+    (item, i) =>
+      `${i + 1}. ${item.name} — qty ${item.qty}${
+        item.price != null ? ` (₹${item.price.toLocaleString("en-IN")}/${item.priceUnit})` : ""
+      }`
+  );
+  return waLink(
+    `Hi Viswas Sports, I'd like a quote for:\n${lines.join("\n")}\n\nCould you share pricing and availability?`
+  );
+}
+
 export function telLink() {
   return `tel:${site.phoneDigits}`;
 }

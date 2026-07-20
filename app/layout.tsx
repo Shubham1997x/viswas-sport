@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { site } from "@/lib/site";
+import { CartProvider } from "@/lib/cart";
 
 export const metadata: Metadata = {
   title: `${site.name} — ${site.tagline}`,
@@ -24,7 +25,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" style={{ colorScheme: "light" }}>
-      <body className="min-h-screen bg-paper font-body text-ink antialiased">{children}</body>
+      <body className="min-h-screen bg-paper font-body text-ink antialiased">
+        <CartProvider>{children}</CartProvider>
+      </body>
     </html>
   );
 }

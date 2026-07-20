@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { ProductCard } from "./product-card";
 import { ProductDetailDialog } from "./product-detail-dialog";
@@ -21,11 +22,23 @@ const subPillClass = (active: boolean) =>
       : "border-hairline bg-white text-ink-soft hover:border-ultra hover:text-ultra"
   }`;
 
-export function CatalogPage({ initialData }: { initialData: CatalogData }) {
+export function CatalogPage({
+  initialData,
+  basePath,
+  initialCategoryId = null,
+  initialSubcategoryId = null,
+}: {
+  initialData: CatalogData;
+  /** When set (e.g. "/cricket"), category/subcategory selection navigates to shareable nested URLs instead of staying client-side only. */
+  basePath?: string;
+  initialCategoryId?: number | null;
+  initialSubcategoryId?: number | null;
+}) {
   const data = initialData;
+  const router = useRouter();
   const [query, setQuery] = useState("");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [subcategoryId, setSubcategoryId] = useState<number | null>(null);
+  const [categoryId, setCategoryId] = useState<number | null>(initialCategoryId);
+  const [subcategoryId, setSubcategoryId] = useState<number | null>(initialSubcategoryId);
   const [inquiryProduct, setInquiryProduct] = useState<CatalogProduct | null>(null);
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<CatalogProduct | null>(null);
@@ -49,6 +62,16 @@ export function CatalogPage({ initialData }: { initialData: CatalogData }) {
   const selectCategory = (id: number | null) => {
     setCategoryId(id);
     setSubcategoryId(null);
+    if (!basePath) return;
+    const category = id !== null ? data.categories.find((c) => c.id === id) : undefined;
+    router.push(category ? `${basePath}/${category.slug}` : basePath);
+  };
+
+  const selectSubcategory = (id: number | null) => {
+    setSubcategoryId(id);
+    if (!basePath || !activeCategory) return;
+    const subcategory = id !== null ? activeCategory.subcategories.find((s) => s.id === id) : undefined;
+    router.push(subcategory ? `${basePath}/${activeCategory.slug}/${subcategory.slug}` : `${basePath}/${activeCategory.slug}`);
   };
 
   const openInquiry = (product: CatalogProduct) => {
@@ -85,7 +108,7 @@ export function CatalogPage({ initialData }: { initialData: CatalogData }) {
   }, []);
 
   return (
-    <section id="catalog" className="mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
+    <section id="catalog" className="mx-auto max-w-7xl px-5 pb-12 pt-20 md:px-8 md:pb-16 md:pt-24">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full shrink-0 md:mr-2 md:w-80 lg:w-96">
           <svg
@@ -132,7 +155,7 @@ export function CatalogPage({ initialData }: { initialData: CatalogData }) {
             {activeCategory.name}:
           </span>
           <button
-            onClick={() => setSubcategoryId(null)}
+            onClick={() => selectSubcategory(null)}
             aria-pressed={subcategoryId === null}
             className={subPillClass(subcategoryId === null)}
           >
@@ -141,7 +164,7 @@ export function CatalogPage({ initialData }: { initialData: CatalogData }) {
           {activeCategory.subcategories.map((s) => (
             <button
               key={s.id}
-              onClick={() => setSubcategoryId(s.id)}
+              onClick={() => selectSubcategory(s.id)}
               aria-pressed={subcategoryId === s.id}
               className={subPillClass(subcategoryId === s.id)}
             >
@@ -152,7 +175,7 @@ export function CatalogPage({ initialData }: { initialData: CatalogData }) {
       )}
 
       {visible.length > 0 ? (
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 md:mt-10 md:gap-6 xl:grid-cols-3">
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 md:mt-10 md:gap-6 lg:grid-cols-3 xl:grid-cols-4">
           {visible.map((p) => (
             <ProductCard key={p.id} product={p} onInquire={openInquiry} onSelect={openDetail} />
           ))}

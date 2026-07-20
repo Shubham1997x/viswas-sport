@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import type { CatalogProduct } from "@/lib/catalog";
 import { productWaLink } from "@/lib/site";
+import { useCart } from "@/lib/cart";
 
 export function ProductDetailDialog({
   product,
@@ -28,6 +29,7 @@ export function ProductDetailDialog({
 }
 
 function Lightbox({ product, onInquire }: { product: CatalogProduct; onInquire: (product: CatalogProduct) => void }) {
+  const { addItem } = useCart();
   const images = product.images.length > 0 ? product.images : [product.image];
   const [active, setActive] = useState(0);
 
@@ -99,6 +101,27 @@ function Lightbox({ product, onInquire }: { product: CatalogProduct; onInquire: 
             <span className="text-ultra">Ask for price</span>
           )}
         </p>
+      </div>
+
+      <div className="border-t border-hairline p-5 pt-0">
+        <button
+          type="button"
+          onClick={() => addItem(product)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-ultra px-4 py-3 text-sm font-semibold text-paper transition-colors duration-300 hover:brightness-110 active:scale-[0.98]"
+        >
+          <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
+            <path
+              d="M1.5 1.5h1.5l1.4 8.4a1 1 0 0 0 1 .83h5.7a1 1 0 0 0 1-.8l1-5.2H4.2"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="6" cy="13.5" r="1" fill="currentColor" />
+            <circle cx="11.5" cy="13.5" r="1" fill="currentColor" />
+          </svg>
+          Add to Cart
+        </button>
       </div>
 
       <div className="grid grid-cols-2 divide-x divide-hairline border-t border-hairline">

@@ -219,12 +219,51 @@ export async function adminDeleteProduct(id: number) {
   return { ok: true as const };
 }
 
+export interface ReorderableProduct {
+  id: number;
+  name: string;
+  image: string;
+  sortOrder: number;
+}
+
+export async function adminListProductsByCategory(categoryId: number): Promise<ReorderableProduct[]> {
+  await requireAdmin();
+  const products = await prisma.product.findMany({
+    where: { categoryId },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    select: { id: true, name: true, image: true, sortOrder: true },
+  });
+  return products;
+}
+
+export async function adminReorderProducts(input: { categoryId: number; orderedProductIds: number[] }) {
+  await requireAdmin();
+  const data = z
+    .object({
+      categoryId: z.number().int().positive(),
+      orderedProductIds: z.array(z.number().int().positive()),
+    })
+    .parse(input);
+  await prisma.$transaction(
+    data.orderedProductIds.map((id, index) =>
+      prisma.product.update({
+        where: { id, categoryId: data.categoryId },
+        data: { sortOrder: index },
+      })
+    )
+  );
+  return { ok: true as const };
+}
+
 // ── Taxonomy ────────────────────────────────────────────────────────────────
 
 export interface AdminTaxonomy {
+  sports: Array<{ id: number; name: string; image: string | null; productCount: number }>;
   categories: Array<{
     id: number;
     name: string;
+    sportId: number;
+    sportName: string;
     productCount: number;
     subcategories: Array<{ id: number; name: string; productCount: number }>;
   }>;
@@ -233,10 +272,14 @@ export interface AdminTaxonomy {
 
 export async function adminGetTaxonomy(): Promise<AdminTaxonomy> {
   await requireAdmin();
-  const [categories, subcategories, tags] = await Promise.all([
+  const [sports, categories, subcategories, tags] = await Promise.all([
+    prisma.sport.findMany({
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      include: { _count: { select: { categories: true } }, categories: { include: { _count: { select: { products: true } } } } },
+    }),
     prisma.category.findMany({
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      include: { _count: { select: { products: true } } },
+      include: { sport: { select: { name: true } }, _count: { select: { products: true } } },
     }),
     prisma.subcategory.findMany({
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -248,9 +291,17 @@ export async function adminGetTaxonomy(): Promise<AdminTaxonomy> {
     }),
   ]);
   return {
+    sports: sports.map((s) => ({
+      id: s.id,
+      name: s.name,
+      image: s.image,
+      productCount: s.categories.reduce((sum, c) => sum + c._count.products, 0),
+    })),
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
+      sportId: c.sportId,
+      sportName: c.sport.name,
       productCount: c._count.products,
       subcategories: subcategories
         .filter((s) => s.categoryId === c.id)
@@ -271,13 +322,20 @@ function slugify(input: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export async function adminCreateCategory(input: { name: string }) {
+export async function adminCreateSport(input: { name: string; image?: string | null }) {
   await requireAdmin();
-  const data = nameSchema.parse(input);
+  const data = nameSchema
+    .extend({ image: z.string().trim().max(300).nullable().optional() })
+    .parse(input);
   try {
-    const max = await prisma.category.aggregate({ _max: { sortOrder: true } });
-    await prisma.category.create({
-      data: { name: data.name, slug: slugify(data.name), sortOrder: (max._max.sortOrder ?? 0) + 1 },
+    const max = await prisma.sport.aggregate({ _max: { sortOrder: true } });
+    await prisma.sport.create({
+      data: {
+        name: data.name,
+        slug: slugify(data.name),
+        image: data.image ?? null,
+        sortOrder: (max._max.sortOrder ?? 0) + 1,
+      },
     });
     return { ok: true as const };
   } catch (err) {
@@ -286,13 +344,70 @@ export async function adminCreateCategory(input: { name: string }) {
   }
 }
 
-export async function adminRenameCategory(input: { id: number; name: string }) {
+export async function adminRenameSport(input: { id: number; name: string; image?: string | null }) {
   await requireAdmin();
-  const data = idSchema.merge(nameSchema).parse(input);
+  const data = idSchema
+    .merge(nameSchema)
+    .extend({ image: z.string().trim().max(300).nullable().optional() })
+    .parse(input);
+  try {
+    await prisma.sport.update({
+      where: { id: data.id },
+      data: { name: data.name, slug: slugify(data.name), ...(data.image !== undefined ? { image: data.image } : {}) },
+    });
+    return { ok: true as const };
+  } catch (err) {
+    if (isUniqueViolation(err)) return { ok: false as const, error: "duplicate" };
+    throw err;
+  }
+}
+
+export async function adminSetSportImage(input: { id: number; image: string | null }) {
+  await requireAdmin();
+  const data = idSchema.extend({ image: z.string().trim().max(300).nullable() }).parse(input);
+  await prisma.sport.update({ where: { id: data.id }, data: { image: data.image } });
+  return { ok: true as const };
+}
+
+export async function adminDeleteSport(input: { id: number }) {
+  await requireAdmin();
+  const data = idSchema.parse(input);
+  const inUse = await prisma.category.count({ where: { sportId: data.id } });
+  if (inUse > 0) return { ok: false as const, error: "in_use" };
+  await prisma.sport.delete({ where: { id: data.id } });
+  return { ok: true as const };
+}
+
+export async function adminCreateCategory(input: { name: string; sportId: number }) {
+  await requireAdmin();
+  const data = nameSchema.extend({ sportId: z.number().int().positive() }).parse(input);
+  try {
+    const max = await prisma.category.aggregate({ _max: { sortOrder: true } });
+    await prisma.category.create({
+      data: {
+        name: data.name,
+        slug: slugify(data.name),
+        sportId: data.sportId,
+        sortOrder: (max._max.sortOrder ?? 0) + 1,
+      },
+    });
+    return { ok: true as const };
+  } catch (err) {
+    if (isUniqueViolation(err)) return { ok: false as const, error: "duplicate" };
+    throw err;
+  }
+}
+
+export async function adminRenameCategory(input: { id: number; name: string; sportId?: number }) {
+  await requireAdmin();
+  const data = idSchema
+    .merge(nameSchema)
+    .extend({ sportId: z.number().int().positive().optional() })
+    .parse(input);
   try {
     await prisma.category.update({
       where: { id: data.id },
-      data: { name: data.name, slug: slugify(data.name) },
+      data: { name: data.name, slug: slugify(data.name), sportId: data.sportId },
     });
     return { ok: true as const };
   } catch (err) {

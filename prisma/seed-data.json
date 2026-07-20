@@ -1,7 +1,14 @@
 {
+  "sports": [
+    "Cricket",
+    "Football",
+    "Volleyball",
+    "Badminton"
+  ],
   "categories": [
     {
       "name": "Batting Gloves",
+      "sport": "Cricket",
       "subcategories": [
         "Match Pro",
         "Club"
@@ -9,6 +16,7 @@
     },
     {
       "name": "Helmets",
+      "sport": "Cricket",
       "subcategories": [
         "Match Pro",
         "Club"
@@ -16,6 +24,7 @@
     },
     {
       "name": "Cricket Balls",
+      "sport": "Cricket",
       "subcategories": [
         "Match Balls",
         "Club Balls",

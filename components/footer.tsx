@@ -20,7 +20,7 @@ const COLUMNS = [
 
 export function Footer() {
   return (
-    <footer className="border-t-2 border-ultra bg-paper pb-24 md:pb-0">
+    <footer className="bg-paper pb-24 md:pb-0">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-5 py-12 md:grid-cols-[2fr_1fr_1fr_2fr] md:gap-8 md:px-8 md:py-16">
         <div>
           <p className="font-display text-3xl font-extrabold leading-[0.95] tracking-tight text-ultra">

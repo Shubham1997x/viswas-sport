@@ -7,10 +7,23 @@ datasource db {
   provider = "sqlite"
 }
 
+model Sport {
+  id         Int        @id @default(autoincrement())
+  name       String
+  slug       String     @unique
+  image      String?
+  sortOrder  Int        @default(0) @map("sort_order")
+  categories Category[]
+
+  @@map("sports")
+}
+
 model Category {
   id            Int            @id @default(autoincrement())
   name          String
   slug          String         @unique
+  sportId       Int            @map("sport_id")
+  sport         Sport          @relation(fields: [sportId], references: [id])
   sortOrder     Int            @default(0) @map("sort_order")
   subcategories Subcategory[]
   products      Product[]

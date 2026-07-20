@@ -5,20 +5,26 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { inputClass } from "./form-classes";
+import { ProductReorderDialog } from "./product-reorder-dialog";
+import { uploadImage } from "./image-upload";
 import {
   adminCreateCategory,
+  adminCreateSport,
   adminCreateSubcategory,
   adminCreateTag,
   adminDeleteCategory,
+  adminDeleteSport,
   adminDeleteSubcategory,
   adminDeleteTag,
   adminRenameCategory,
+  adminRenameSport,
   adminRenameSubcategory,
   adminRenameTag,
+  adminSetSportImage,
   type AdminTaxonomy,
 } from "@/app/actions/admin";
 
-type Kind = "categories" | "subcategories" | "tags";
+type Kind = "sports" | "categories" | "subcategories" | "tags";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -185,12 +191,366 @@ function ItemList({
   );
 }
 
+function SportList({
+  sports,
+  onAdd,
+  onRename,
+  onDelete,
+  onImageChange,
+}: {
+  sports: AdminTaxonomy["sports"];
+  onAdd: (name: string) => Promise<ActionResult>;
+  onRename: (id: number, name: string) => Promise<ActionResult>;
+  onDelete: (id: number) => Promise<ActionResult>;
+  onImageChange: (id: number, image: string | null) => Promise<ActionResult>;
+}) {
+  const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
+
+  const run = async (action: () => Promise<ActionResult>, successMsg: string) => {
+    setBusy(true);
+    try {
+      const res = await action();
+      if (res.ok) {
+        toast.success(successMsg);
+        return true;
+      }
+      errorToast(res.error);
+      return false;
+    } catch {
+      toast.error("That did not work. Try again.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitAdd = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const name = newName.trim();
+    if (name.length < 2) return;
+    if (await run(() => onAdd(name), "Added.")) setNewName("");
+  };
+
+  const submitRename = async (id: number) => {
+    const name = editName.trim();
+    if (name.length < 2) return;
+    if (await run(() => onRename(id, name), "Renamed.")) setEditingId(null);
+  };
+
+  const pickImage = async (id: number, file: File | undefined) => {
+    if (!file) return;
+    setUploadingId(id);
+    try {
+      const url = await uploadImage(file);
+      if (!url) {
+        toast.error("Could not upload the image.");
+        return;
+      }
+      const res = await onImageChange(id, url);
+      if (res.ok) toast.success("Image updated.");
+      else errorToast(res.error);
+    } catch {
+      toast.error("Could not upload the image.");
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  return (
+    <div>
+      <form onSubmit={submitAdd} className="flex gap-2">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="New sport, e.g. Football"
+          minLength={2}
+          required
+          className={inputClass}
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="shrink-0 rounded-lg bg-ultra px-5 py-2.5 text-sm font-semibold text-paper transition active:scale-[0.98] disabled:opacity-60"
+        >
+          Add
+        </button>
+      </form>
+      <ul className="mt-4 divide-y divide-hairline rounded-xl border border-hairline bg-white shadow-[0_1px_3px_rgba(16,20,43,0.05)]">
+        {sports.map((item) => (
+          <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+            <div className="aspect-square w-11 shrink-0 overflow-hidden rounded-md border border-hairline bg-tint">
+              {item.image && <img src={item.image} alt="" className="h-full w-full object-cover" />}
+            </div>
+            {editingId === item.id ? (
+              <>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className={inputClass}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void submitRename(item.id);
+                    }
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void submitRename(item.id)}
+                  className="shrink-0 rounded-lg bg-ultra px-3 py-1.5 text-[13px] font-semibold text-paper disabled:opacity-60"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="shrink-0 rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink-soft"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-sm font-medium text-ink">{item.name}</span>
+                <span className="text-xs tabular-nums text-ink-soft">{item.productCount} products</span>
+                <label className="cursor-pointer rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:border-ultra hover:text-ultra">
+                  {uploadingId === item.id ? "Uploading..." : "Upload image"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingId === item.id}
+                    onChange={(e) => {
+                      void pickImage(item.id, e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(item.id);
+                    setEditName(item.name);
+                  }}
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:border-ultra hover:text-ultra"
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void run(() => onDelete(item.id), "Deleted.")}
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink-soft transition-colors hover:border-red-400 hover:text-red-500 disabled:opacity-60"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </li>
+        ))}
+        {sports.length === 0 && (
+          <li className="px-4 py-8 text-center text-sm text-ink-soft">Nothing here yet.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function CategoryList({
+  categories,
+  sports,
+  onAdd,
+  onRename,
+  onDelete,
+  onReorder,
+}: {
+  categories: AdminTaxonomy["categories"];
+  sports: AdminTaxonomy["sports"];
+  onAdd: (name: string, sportId: number) => Promise<ActionResult>;
+  onRename: (id: number, name: string, sportId: number) => Promise<ActionResult>;
+  onDelete: (id: number) => Promise<ActionResult>;
+  onReorder: (id: number, name: string) => void;
+}) {
+  const [newName, setNewName] = useState("");
+  const [newSportId, setNewSportId] = useState<number | "">(sports[0]?.id ?? "");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editSportId, setEditSportId] = useState<number | "">("");
+  const [busy, setBusy] = useState(false);
+
+  const run = async (action: () => Promise<ActionResult>, successMsg: string) => {
+    setBusy(true);
+    try {
+      const res = await action();
+      if (res.ok) {
+        toast.success(successMsg);
+        return true;
+      }
+      errorToast(res.error);
+      return false;
+    } catch {
+      toast.error("That did not work. Try again.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitAdd = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const name = newName.trim();
+    if (name.length < 2 || newSportId === "") return;
+    if (await run(() => onAdd(name, newSportId), "Added.")) setNewName("");
+  };
+
+  const submitRename = async (id: number) => {
+    const name = editName.trim();
+    if (name.length < 2 || editSportId === "") return;
+    if (await run(() => onRename(id, name, editSportId), "Renamed.")) setEditingId(null);
+  };
+
+  return (
+    <div>
+      {sports.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-hairline bg-white px-4 py-3 text-sm text-ink-soft">
+          Create a sport first.
+        </p>
+      ) : (
+        <form onSubmit={submitAdd} className="flex gap-2">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New category name"
+            minLength={2}
+            required
+            className={inputClass}
+          />
+          <select
+            value={newSportId}
+            onChange={(e) => setNewSportId(Number(e.target.value))}
+            className={`${inputClass} max-w-[10rem]`}
+          >
+            {sports.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            disabled={busy}
+            className="shrink-0 rounded-lg bg-ultra px-5 py-2.5 text-sm font-semibold text-paper transition active:scale-[0.98] disabled:opacity-60"
+          >
+            Add
+          </button>
+        </form>
+      )}
+      <ul className="mt-4 divide-y divide-hairline rounded-xl border border-hairline bg-white shadow-[0_1px_3px_rgba(16,20,43,0.05)]">
+        {categories.map((item) => (
+          <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+            {editingId === item.id ? (
+              <>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className={inputClass}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void submitRename(item.id);
+                    }
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                />
+                <select
+                  value={editSportId}
+                  onChange={(e) => setEditSportId(Number(e.target.value))}
+                  className={`${inputClass} max-w-[10rem]`}
+                >
+                  {sports.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void submitRename(item.id)}
+                  className="shrink-0 rounded-lg bg-ultra px-3 py-1.5 text-[13px] font-semibold text-paper disabled:opacity-60"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="shrink-0 rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink-soft"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-ink">{item.name}</span>
+                  <span className="ml-2 rounded-md bg-tint px-1.5 py-0.5 text-[11px] font-semibold text-ultra">
+                    {item.sportName}
+                  </span>
+                </div>
+                <span className="text-xs tabular-nums text-ink-soft">{item.productCount} products</span>
+                <button
+                  type="button"
+                  onClick={() => onReorder(item.id, item.name)}
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:border-ultra hover:text-ultra"
+                >
+                  Reorder products
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(item.id);
+                    setEditName(item.name);
+                    setEditSportId(item.sportId);
+                  }}
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:border-ultra hover:text-ultra"
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void run(() => onDelete(item.id), "Deleted.")}
+                  className="rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink-soft transition-colors hover:border-red-400 hover:text-red-500 disabled:opacity-60"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </li>
+        ))}
+        {categories.length === 0 && (
+          <li className="px-4 py-8 text-center text-sm text-ink-soft">Nothing here yet.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 export function TaxonomyManager({ initialTaxonomy }: { initialTaxonomy: AdminTaxonomy }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const taxonomy = initialTaxonomy;
   const [tab, setTab] = useState<Kind>("categories");
   const [subCategoryId, setSubCategoryId] = useState<number | null>(null);
+  const [reorderCategory, setReorderCategory] = useState<{ id: number; name: string } | null>(null);
 
   const invalidate = () => startTransition(() => router.refresh());
 
@@ -206,6 +566,7 @@ export function TaxonomyManager({ initialTaxonomy }: { initialTaxonomy: AdminTax
   const activeCategory = categories.find((c) => c.id === subCategoryId) ?? categories[0];
 
   const TABS: Array<{ key: Kind; label: string }> = [
+    { key: "sports", label: "Sports" },
     { key: "categories", label: "Categories" },
     { key: "subcategories", label: "Subcategories" },
     { key: "tags", label: "Tags" },
@@ -232,14 +593,24 @@ export function TaxonomyManager({ initialTaxonomy }: { initialTaxonomy: AdminTax
       </div>
 
       <div className="mt-6 max-w-2xl">
+        {tab === "sports" && (
+          <SportList
+            sports={taxonomy.sports}
+            onAdd={(name) => wrap(adminCreateSport)({ name })}
+            onRename={(id, name) => wrap(adminRenameSport)({ id, name })}
+            onDelete={(id) => wrap(adminDeleteSport)({ id })}
+            onImageChange={(id, image) => wrap(adminSetSportImage)({ id, image })}
+          />
+        )}
+
         {tab === "categories" && (
-          <ItemList
-            items={categories}
-            countNoun="products"
-            addPlaceholder="New category name"
-            onAdd={(name) => wrap(adminCreateCategory)({ name })}
-            onRename={(id, name) => wrap(adminRenameCategory)({ id, name })}
+          <CategoryList
+            categories={categories}
+            sports={taxonomy.sports}
+            onAdd={(name, sportId) => wrap(adminCreateCategory)({ name, sportId })}
+            onRename={(id, name, sportId) => wrap(adminRenameCategory)({ id, name, sportId })}
             onDelete={(id) => wrap(adminDeleteCategory)({ id })}
+            onReorder={(id, name) => setReorderCategory({ id, name })}
           />
         )}
 
@@ -282,6 +653,15 @@ export function TaxonomyManager({ initialTaxonomy }: { initialTaxonomy: AdminTax
           />
         )}
       </div>
+
+      <ProductReorderDialog
+        categoryId={reorderCategory?.id ?? null}
+        categoryName={reorderCategory?.name ?? ""}
+        open={reorderCategory !== null}
+        onOpenChange={(open) => {
+          if (!open) setReorderCategory(null);
+        }}
+      />
     </div>
   );
 }
