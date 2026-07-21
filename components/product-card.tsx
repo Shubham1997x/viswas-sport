@@ -11,7 +11,8 @@ export function ProductCard({
   onInquire: (product: CatalogProduct) => void;
   onSelect: (product: CatalogProduct) => void;
 }) {
-  const { addItem } = useCart();
+  const { items, addItem } = useCart();
+  const inCart = items.some((i) => i.productId === product.id);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-hairline bg-white shadow-[0_1px_3px_rgba(16,20,43,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_24px_rgba(16,20,43,0.1)]">
@@ -75,27 +76,37 @@ export function ProductCard({
         </div>
       </button>
 
-      <div className="border-t border-hairline p-3 pt-0 md:p-4 md:pt-0">
+      <div className="border-t border-hairline p-3 pt-2.5 md:p-4 md:pt-3">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             addItem(product);
           }}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-ultra px-3 py-2.5 text-[13px] font-semibold text-paper transition-colors duration-300 hover:brightness-110 active:scale-[0.98]"
+          className={`flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-colors duration-300 active:scale-[0.98] ${
+            inCart
+              ? "bg-tint text-ultra hover:brightness-95"
+              : "bg-ultra text-paper hover:brightness-110"
+          }`}
         >
-          <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
-            <path
-              d="M1.5 1.5h1.5l1.4 8.4a1 1 0 0 0 1 .83h5.7a1 1 0 0 0 1-.8l1-5.2H4.2"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="6" cy="13.5" r="1" fill="currentColor" />
-            <circle cx="11.5" cy="13.5" r="1" fill="currentColor" />
-          </svg>
-          Add to Cart
+          {inCart ? (
+            <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
+              <path d="M3 8.5 6.5 12 13 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
+              <path
+                d="M1.5 1.5h1.5l1.4 8.4a1 1 0 0 0 1 .83h5.7a1 1 0 0 0 1-.8l1-5.2H4.2"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="6" cy="13.5" r="1" fill="currentColor" />
+              <circle cx="11.5" cy="13.5" r="1" fill="currentColor" />
+            </svg>
+          )}
+          {inCart ? "Added to Cart" : "Add to Cart"}
         </button>
       </div>
 
